@@ -18,6 +18,7 @@ PreyPredatorAutoma::PreyPredatorAutoma(int N, int mat_prey, int mat_predator,int
 	this->mat_predator=mat_predator;
 	this->mat_prey=mat_prey;
 	this->fasting_predator=fasting_predator;
+	this->fasting_eat_predator=this->fasting_predator/2;
 	this->preyPerc=preyPerc;
 	this->predatorPerc=predatorPerc;
 	this->percPreyZone=percPreyZone;
@@ -135,11 +136,11 @@ void PreyPredatorAutoma::doPreyStep(int x, int y) {
 	//incremento età preda
 	automa[currentMatrix][x][y].age=automa[currentMatrix][x][y].age+1;
 
-	//muore dopo tot anni
-	if(automa[currentMatrix][x][y].age>mat_prey+5){
-		automa[currentMatrix][x][y].action=DEAD;
-		return;
-	}
+//	//muore dopo tot anni
+//	if(automa[currentMatrix][x][y].age>mat_prey){
+//		automa[currentMatrix][x][y].action=DEAD;
+//		return;
+//	}
 
 	//avvista il predatore se nella zona prey_zone
 	if(field[x][y]==PREY_ZONE){
@@ -230,7 +231,7 @@ void PreyPredatorAutoma::doPredatorStep(int x, int y) {
 	}
 
 //ricerca cibo proporzionale al tempo di digiuno
-	if(automa[currentMatrix][x][y].fasting>=fasting_predator/2){
+//	if(automa[currentMatrix][x][y].fasting>=fasting_eat_predator){
 
 		//ricerca preda
 		int dir=searchCell(x,y,PREY);
@@ -241,7 +242,7 @@ void PreyPredatorAutoma::doPredatorStep(int x, int y) {
 			return ;
 		}
 
-	}
+//	}
 
 	int choose=rand()%2;
 	if(automa[currentMatrix][x][y].age>=mat_predator)

@@ -80,6 +80,8 @@ private:
 	int mat_predator;
 	//digiuno massimo predatore
 	int fasting_predator;
+	// Ricerca cibo predatore dopo fasting passi
+	int fasting_eat_predator;
 	//parametri per l'inizializzazione
 	double preyPerc;
 	double predatorPerc;
