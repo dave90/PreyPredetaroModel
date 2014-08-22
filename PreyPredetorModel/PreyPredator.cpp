@@ -12,12 +12,13 @@
 #include <omp.h>
 #include <windows.h>
 #include "PreyPredatorAutoma.h"
+#include <list>
 
 
 using namespace std;
 
 //dimension automata & constant
-int N = 100;
+int N = 20;
 int mat_prey=50;
 int mat_predator=15;
 int fasting_predator=12;
@@ -27,12 +28,17 @@ double percPreyZone=40;
 
 PreyPredatorAutoma *model;
 
-double cellSize = 2;
+double cellSize = 10;
 double sleepTime = 500.0;
 bool pause =false;
 double lastTime = 0;
 int iteration=0;
 ofstream resultFile;
+
+// Plot data
+list<pair<int,int> > graphPrey;
+list<pair<int,int> > graphPredator;
+int maxSizeGraph=1000;
 
 // UI VARIABLE //
 
@@ -100,7 +106,7 @@ void init() {
 
 	model=new PreyPredatorAutoma(N,mat_prey,mat_predator,fasting_predator,preyPerc,predatorPerc,percPreyZone);
 	resultFile.open("result.dat");
-	resultFile << "Time " << "Number_Prey" << "Number_Predator" <<endl;
+	resultFile << "Time " << "Number_Prey " << "Number_Predator" <<endl;
 
 }
 
@@ -170,7 +176,15 @@ void display(void) {
 		lastTime = glutGet(GLUT_ELAPSED_TIME) ;
 		model->doStep();
 
-		resultFile << iteration << "   " << model->getNumberCurrentPrey() << "   " << model->getNumberCurrentPredator() <<endl;
+		graphPrey.push_back({iteration,model->getNumberCurrentPrey()});
+		graphPredator.push_back({iteration,model->getNumberCurrentPredator()});
+		//Print le ultime tot iterazioni
+		if(graphPrey.size()>1000){graphPrey.pop_front();graphPredator.pop_front();};
+
+		cout<< "plot '-' using 1:2 with lines, '-' using 1:3 with lines" <<endl;
+		for(list<pair<int,int> >::iterator it1=graphPrey.begin(),it2=graphPredator.begin();it1!=graphPrey.end();it1++,it2++)
+			cout << it1->first << "	" <<it1->second<<"	"<<it2->second<<endl;
+		cout<<"e"<<endl;
 		iteration++;
 	}
 }
@@ -219,7 +233,7 @@ int main(int argc, char** argv) {
 	  new GLUI_StaticText( glui, "Set parameter" );
 	  new GLUI_Separator( glui );
 	  GLUI_Spinner* sleepSpinner  = new GLUI_Spinner( glui, "Sleep time:", &sleepTimeGUI, 2 ,control_cb);
-	  sleepSpinner->set_float_limits( 0, 500 );
+	  sleepSpinner->set_float_limits( 0, 1000 );
 
 	  GLUI_Spinner* dimText = new GLUI_Spinner( glui, "Dimension:", &NGUI, 2 );
 	  dimText->set_int_limits( 1, 1000 );

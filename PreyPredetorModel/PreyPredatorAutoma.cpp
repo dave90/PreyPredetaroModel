@@ -22,6 +22,12 @@ PreyPredatorAutoma::PreyPredatorAutoma(int N, int mat_prey, int mat_predator,int
 	this->preyPerc=preyPerc;
 	this->predatorPerc=predatorPerc;
 	this->percPreyZone=percPreyZone;
+	//TODO Add to input
+	this->preyReproductionFactor=1;
+	this->preyMoveFactor=10;
+	this->preyNoMoveFactor=5;
+	this->predatorReproductionFactor=1;
+	this->predatorAggressiveFactor=5;
 
 // inizializzazione matrice
 	currentMatrix=0;
@@ -152,20 +158,22 @@ void PreyPredatorAutoma::doPreyStep(int x, int y) {
 		}
 	}
 
-
-	int choose=rand()%2;
+	// Fattore riproduzione movimento e stare fermo (quest'ultimi pari a 1)
+	int choose=0;
 	if(automa[currentMatrix][x][y].age>=mat_prey)
-		choose=rand()%3;
+		choose=rand()%(preyMoveFactor+preyNoMoveFactor+preyReproductionFactor);
+	else
+		choose=rand()%(preyMoveFactor+preyNoMoveFactor);
 
-	if(choose==1){
+	if(choose<preyMoveFactor){
 		//spostamento preda
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=searchCell(x,y,EMPTY);
-	}else if(choose==0){
+	}else if(choose<preyMoveFactor+preyNoMoveFactor){
 		//la preda non fa niente
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=0;
-	}else if(choose==2){
+	}else {
 		//riproduzione della preda
 		automa[currentMatrix][x][y].action=REPRODUCT;
 		automa[currentMatrix][x][y].direction=searchCell(x,y,EMPTY);
@@ -194,10 +202,14 @@ int PreyPredatorAutoma::sightsPredator(int x, int y) {
 	//calcola le celle che nel loro vicinato non ci sono predatori
 	int safeX[N];
 	int safeY[N];
+	int notSafeX[N];
+	int notSafeY[N];
 	int safeCont=0;
 	int predator=0;
 	for(int i=0;i<cont;i++){
 		if(searchCell(emptyX[i],emptyY[i],PREDATOR)!=0){
+			notSafeX[predator]=emptyX[i];
+			notSafeY[predator]=emptyY[i];
 			predator++;
 		}else{
 			safeX[safeCont]=emptyX[i];
@@ -210,8 +222,33 @@ int PreyPredatorAutoma::sightsPredator(int x, int y) {
 	delete []ny;
 
 	if(predator>=1 && safeCont>0){
-		int choose=rand()%safeCont;
-		return getDirection(x,y,safeX[choose],safeY[choose]);
+		int selectCellX[N];
+		int selectCellY[N];
+		int selectCount=0;
+		//Elimina le celle vicine alle celle not safe
+		for(int i=0;i<safeCont;i++){
+			bool add=true;
+			for(int j=0;j<predator;j++)
+				if(isNeighborhood(safeX[i],safeY[i],notSafeX[j],notSafeY[j])){
+					add=false;
+					break;
+				}
+			if(add){
+				selectCellX[selectCount]=safeX[i];
+				selectCellY[selectCount]=safeY[i];
+				selectCount++;
+			}
+		}
+
+		// Se tutte le celle sono vicine alla cella not safe prendine una a caso tra le empty
+		if(selectCount==0){
+			int choose=rand()%safeCont;
+			return getDirection(x,y,safeX[choose],safeY[choose]);
+		}
+
+		int choose=rand()%selectCount;
+		return getDirection(x,y,selectCellX[choose],selectCellY[choose]);
+
 	}
 	return -1;
 }
@@ -230,36 +267,42 @@ void PreyPredatorAutoma::doPredatorStep(int x, int y) {
 		return ;
 	}
 
-//ricerca cibo proporzionale al tempo di digiuno
-//	if(automa[currentMatrix][x][y].fasting>=fasting_eat_predator){
 
-		//ricerca preda
-		int dir=searchCell(x,y,PREY);
-		if(dir!=0){
-			//ha localizzato una preda
-			automa[currentMatrix][x][y].action=EAT;
-			automa[currentMatrix][x][y].direction=dir;
-			return ;
-		}
+	//ricerca preda
+	int dir=searchCell(x,y,PREY);
 
-//	}
 
-	int choose=rand()%2;
-	if(automa[currentMatrix][x][y].age>=mat_predator)
-		choose=rand()%3;
+	bool isMaturity=automa[currentMatrix][x][y].age>=mat_predator;
+	bool isPresentPrey=dir!=0;
 
-	if(choose==1){
+	int totalProbability=1+1;
+	if(isMaturity)
+		totalProbability+=predatorReproductionFactor;
+	if(isPresentPrey)
+		totalProbability+=predatorAggressiveFactor;
+
+	int choose=rand()%totalProbability;
+
+	if(choose<1){
 		//spostamento predatore
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=searchCell(x,y,EMPTY);
-	}else if(choose==0){
+	}else if(choose<2){
 		//il predatore non fa niente
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=0;
-	}else if(choose==2){
+	}else if(isMaturity && choose<2+predatorReproductionFactor){
+
 		//riproduzione dell redatore
 		automa[currentMatrix][x][y].action=REPRODUCT;
 		automa[currentMatrix][x][y].direction=searchCell(x,y,EMPTY);
+
+	}else{
+
+		//ha localizzato una preda
+		automa[currentMatrix][x][y].action=EAT;
+		automa[currentMatrix][x][y].direction=dir;
+
 	}
 }
 
@@ -276,9 +319,13 @@ void PreyPredatorAutoma::resolveConflict(int x, int y) {
 	int conflictY[N];
 	int cont=0;
 	for(int i=0;i<N;i++){
+		if(automa[currentMatrix][nx[i]][ny[i]].type==EMPTY)continue;
 		int dirCell=automa[currentMatrix][nx[i]][ny[i]].direction;
-		int dir=getDirection(x,y,nx[i],ny[i]);
-		if(dirCell+dir==5){
+		int newX,newY;
+		getCordinate(dirCell,nx[i],ny[i],newX,newY);
+		if(newX==x && newY==y){
+//		int dir=getDirection(x,y,nx[i],ny[i]);
+//		if(dirCell+dir==5){
 			conflictX[cont]=nx[i];
 			conflictY[cont]=ny[i];
 			cont++;
@@ -350,31 +397,57 @@ void PreyPredatorAutoma::getCordinate(int direction, int x, int y, int& newX,int
 		newY=y;
 		newX=x-1;
 	}else if(direction==2){
-		newY=y+1;
-		newX=x;
+		newY=y-1;
+		newX=x-1;
 	}else if(direction==3){
 		newY=y-1;
 		newX=x;
 	}else if(direction==4){
+		newY=y-1;
+		newX=x+1;
+	}else if(direction==5){
 		newY=y;
 		newX=x+1;
+	}else if(direction==6){
+		newY=y+1;
+		newX=x+1;
+	}else if(direction==7){
+		newY=y+1;
+		newX=x;
+	}else if(direction==8){
+		newY=y+1;
+		newX=x-1;
 	}
 }
 
 int PreyPredatorAutoma::getDirection(int x, int y, int newX, int newY) {
-	if(x==newX){
-		if(y==newY)
-			return 0;
-		else if(y==newY-1)
-			return 2;
-		else if(y==newY+1)
-			return 3;
-	}
-	if(y==newY){
-		if(x==newX-1)
-			return 4;
-		else if(x==newX+1)
-			return 1;
+	if(newY == y  && newX==x){
+
+		return 0;
+	}else if(newY == y  && newX==x-1){
+
+		return 1;
+	}else if(newY == y-1  && newX==x-1){
+
+		return 2;
+	}else if(newY == y-1  && newX==x){
+
+		return 3;
+	}else if(newY == y-1  && newX==x+1){
+
+		return 4;
+	}else if(newY == y  && newX==x+1){
+
+		return 5;
+	}else if(newY == y+1  && newX==x+1){
+
+		return 6;
+	}else if(newY == y+1  && newX==x){
+
+		return 7;
+	}else if(newY == y+1  && newX==x-1){
+
+		return 8;
 	}
 	return -1;
 }
@@ -393,6 +466,21 @@ void PreyPredatorAutoma::getNeighborhood(int x, int y, int  *&nx, int *&ny,int& 
 		ny[N]=y-1;
 		N++;
 	}
+	if(y>0 && x>0){
+		nx[N]=x-1;
+		ny[N]=y-1;
+		N++;
+	}
+	if(y>0 && x<this->N-1){
+		nx[N]=x+1;
+		ny[N]=y-1;
+		N++;
+	}
+	if(y<this->N-1 && x>0){
+		nx[N]=x-1;
+		ny[N]=y+1;
+		N++;
+	}
 	if(x<this->N-1){
 		nx[N]=x+1;
 		ny[N]=y;
@@ -400,6 +488,11 @@ void PreyPredatorAutoma::getNeighborhood(int x, int y, int  *&nx, int *&ny,int& 
 	}
 	if(y<this->N-1){
 		nx[N]=x;
+		ny[N]=y+1;
+		N++;
+	}
+	if(x<this->N-1 && y<this->N-1){
+		nx[N]=x+1;
 		ny[N]=y+1;
 		N++;
 	}
@@ -411,7 +504,7 @@ int PreyPredatorAutoma::searchCell(int x, int y, int type) {
 	int *ny=0;
 	int N;
 
-	int directions[4];
+	int directions[8];
 	int cont=0;
 
 	getNeighborhood(x,y,nx,ny,N);
@@ -420,6 +513,7 @@ int PreyPredatorAutoma::searchCell(int x, int y, int type) {
 			directions[cont]=getDirection(x,y,nx[i],ny[i]);
 			cont++;
 		}
+
 	}
 	delete []nx;
 	delete []ny;
@@ -441,6 +535,23 @@ int PreyPredatorAutoma::getNumberCurrentPrey() {
 
 }
 
+bool PreyPredatorAutoma::isNeighborhood(int x1, int y1, int x2, int y2) {
+	int *nx=0;
+	int *ny=0;
+	int N;
+	bool returnValue=false;
+
+	getNeighborhood(x1,y1,nx,ny,N);
+	for(int i=0;i<N;i++)
+		if(nx[i]==x2 && ny[i]==y2){
+			returnValue=true;
+			break;
+		}
+	delete nx;
+	delete ny;
+
+	return returnValue;
+}
 
 int PreyPredatorAutoma::getNumberCurrentPredator() {
 	int contPredator=0;

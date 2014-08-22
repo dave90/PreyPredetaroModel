@@ -46,6 +46,8 @@ public:
 	int getDirection(int x,int y,int newX,int newY);
 	//calcola i vicini della cella (x,y) e mette le cordinate nei vettori nx e ny e la dimensione in N
 	void getNeighborhood(int x,int y,int *&nx,int *&ny,int& N);
+	//ritorna true se le celle sono vicine
+	bool isNeighborhood(int x1,int y1,int x2,int y2);
 	//cerca una cella vicina la cella (x,y) di tipo type
 	int searchCell(int x,int y,int type);
 	//muovi cella in base la direzione
@@ -86,6 +88,12 @@ private:
 	double preyPerc;
 	double predatorPerc;
 	double percPreyZone;
+	// Fattori di riproduzione e aggressione preda-predatore
+	int preyReproductionFactor;
+	int preyMoveFactor;
+	int preyNoMoveFactor;
+	int predatorReproductionFactor;
+	int predatorAggressiveFactor;
 
 //matrici dell'automa
 	cell ***automa;
