@@ -13,6 +13,7 @@
 #define PREDATOR 2
 #define PREY_ZONE 0
 #define PREDATOR_ZONE 1
+#define GRASS 2
 #define MOVE 0
 #define REPRODUCT 1
 #define EAT 2
@@ -31,13 +32,14 @@ struct cell{
 	int fasting;
 	int direction;
 	int action;
+	int grass;
 };
 
 class PreyPredatorAutoma {
 
 
 public:
-	PreyPredatorAutoma(int N,int mat_prey,int mat_predator,int fasting_predator,double preyPerc,double predatorPerc,double percPreyZone);
+	PreyPredatorAutoma(int N, int mat_prey, int mat_predator,int fasting_predator,int fasting_prey,int preyReproductionFactor,int preyMoveFactor,int preyNoMoveFactor,int predatorReproductionFactor,int predatorMoveFactor,int predatorNoMoveFactor,int predatorAggressiveFactor,double growthGrassFactor,int preyEatGrassFactor,int grassPerc,double preyPerc,double predatorPerc,double percPreyZone);
 	void inizialize();
 	void doStep();
 	//dalla direzione ritorna le cordinate
@@ -62,6 +64,10 @@ public:
 	void doPredatorStep(int x,int y);
 	//esegui l'azione scelta della preda/predatore
 	void doAction(int x,int y);
+	//esegue la crescita delle piante
+	void grassGrowth(int i,int j);
+	//esegue l'azione di diminuire la pianta e il fasting della preda
+	void preyEatGrass(int i,int j);
 	//cattura della preda da parte del predatore
 	void capturePrey(int x,int y);
 	//avvista predatore e restituisce la direzione per scappare
@@ -80,19 +86,27 @@ private:
 	//maturità riproduzione
 	int mat_prey;
 	int mat_predator;
-	//digiuno massimo predatore
+	//digiuno massimo predatore/preda
 	int fasting_predator;
+	int fasting_prey;
 	// Ricerca cibo predatore dopo fasting passi
 	int fasting_eat_predator;
+	//Fattore crescita piante
+	double growthGrassFactor;
 	//parametri per l'inizializzazione
 	double preyPerc;
 	double predatorPerc;
 	double percPreyZone;
+	//erba iniziale
+	double grassPerc;
 	// Fattori di riproduzione e aggressione preda-predatore
 	int preyReproductionFactor;
 	int preyMoveFactor;
 	int preyNoMoveFactor;
+	int preyEatGrassFactor;
 	int predatorReproductionFactor;
+	int predatorMoveFactor;
+	int predatorNoMoveFactor;
 	int predatorAggressiveFactor;
 
 //matrici dell'automa

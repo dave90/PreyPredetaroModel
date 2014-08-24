@@ -12,22 +12,29 @@
 
 using namespace std;
 
-PreyPredatorAutoma::PreyPredatorAutoma(int N, int mat_prey, int mat_predator,int fasting_predator,double preyPerc,double predatorPerc,double percPreyZone) {
+PreyPredatorAutoma::PreyPredatorAutoma(int N, int mat_prey, int mat_predator,int fasting_predator,int fasting_prey,int preyReproductionFactor,int preyMoveFactor,int preyNoMoveFactor,int predatorReproductionFactor,int predatorMoveFactor,int predatorNoMoveFactor,int predatorAggressiveFactor,double growthGrassFactor,int preyEatGrassFactor,int grassPerc,double preyPerc,double predatorPerc,double percPreyZone) {
 	srand(time(0));
 	this->N=N;
 	this->mat_predator=mat_predator;
 	this->mat_prey=mat_prey;
+	this->fasting_prey=fasting_prey;
 	this->fasting_predator=fasting_predator;
 	this->fasting_eat_predator=this->fasting_predator/2;
 	this->preyPerc=preyPerc;
 	this->predatorPerc=predatorPerc;
+
+	this->grassPerc=grassPerc;
+	this->growthGrassFactor=growthGrassFactor;
+	this->preyEatGrassFactor=preyEatGrassFactor;
+
 	this->percPreyZone=percPreyZone;
-	//TODO Add to input
-	this->preyReproductionFactor=1;
-	this->preyMoveFactor=10;
-	this->preyNoMoveFactor=5;
-	this->predatorReproductionFactor=1;
-	this->predatorAggressiveFactor=5;
+	this->preyReproductionFactor=preyReproductionFactor;
+	this->preyMoveFactor=preyMoveFactor;
+	this->preyNoMoveFactor=preyNoMoveFactor;
+	this->predatorReproductionFactor=predatorReproductionFactor;
+	this->predatorMoveFactor=predatorMoveFactor;
+	this->predatorNoMoveFactor=predatorNoMoveFactor;
+	this->predatorAggressiveFactor=predatorAggressiveFactor;
 
 // inizializzazione matrice
 	currentMatrix=0;
@@ -46,8 +53,10 @@ void PreyPredatorAutoma::inizialize() {
 
 //setta tutte le celle a vuote
 	for(int i=0;i<N;i++)
-		for(int j=0;j<N;j++)
+		for(int j=0;j<N;j++){
 			automa[currentMatrix][i][j].type=EMPTY;
+			automa[currentMatrix][i][j].grass=0;
+		}
 
 //aggiungi prede e predatori in base la percentuale
 	if(predatorPerc+preyPerc>100){
@@ -56,6 +65,8 @@ void PreyPredatorAutoma::inizialize() {
 	}
 	int preyNumber=N*N*preyPerc/100;
 	int predatorNumber=N*N*predatorPerc/100;
+	int grassNumber=N*N*grassPerc/100;
+
 	while(preyNumber>0){
 		int x=rand()%N;
 		int y=rand()%N;
@@ -63,6 +74,7 @@ void PreyPredatorAutoma::inizialize() {
 			automa[currentMatrix][x][y].type=PREY;
 			automa[currentMatrix][x][y].direction=0;
 			automa[currentMatrix][x][y].age=0;
+			automa[currentMatrix][x][y].fasting=0;
 			preyNumber--;
 		}
 	}
@@ -78,6 +90,22 @@ void PreyPredatorAutoma::inizialize() {
 			predatorNumber--;
 		}
 	}
+
+	//Aggiungi l'erba
+	while(grassNumber>0){
+		int x=rand()%N;
+		int y=rand()%N;
+		if(automa[currentMatrix][x][y].grass==0){
+			automa[currentMatrix][x][y].grass=automa[currentMatrix][x][y].grass+1;
+			grassNumber--;
+		}
+	}
+
+
+
+
+
+
 
 //inizializzza il terreno
 	field=new int*[N];
@@ -95,7 +123,6 @@ void PreyPredatorAutoma::inizialize() {
 		for(int j=y;j<y+preyCell;j++)
 			field[i][j]=PREY_ZONE;
 
-
 }
 
 void PreyPredatorAutoma::doStep() {
@@ -103,6 +130,7 @@ void PreyPredatorAutoma::doStep() {
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++){
 			automa[1-currentMatrix][i][j].type=EMPTY;
+			automa[1-currentMatrix][i][j].grass=0;
 		}
 
 	//esegui i sottoprocessi
@@ -132,6 +160,12 @@ void PreyPredatorAutoma::doStep() {
 				doAction(i,j);
 			}
 
+	//esegui crescita piante
+	for(int i=0;i<N;i++)
+		for(int j=0;j<N;j++)
+			grassGrowth(i,j);
+
+
 
 
 	currentMatrix=1-currentMatrix;
@@ -141,12 +175,15 @@ void PreyPredatorAutoma::doPreyStep(int x, int y) {
 
 	//incremento età preda
 	automa[currentMatrix][x][y].age=automa[currentMatrix][x][y].age+1;
+	//incremento digiuno
+	automa[currentMatrix][x][y].fasting=automa[currentMatrix][x][y].fasting+1;
 
-//	//muore dopo tot anni
-//	if(automa[currentMatrix][x][y].age>mat_prey){
-//		automa[currentMatrix][x][y].action=DEAD;
-//		return;
-//	}
+
+	//morte della preda se fasting>fasting_prey, non mangia da fasting passi
+	if(automa[currentMatrix][x][y].fasting>fasting_prey){
+		automa[currentMatrix][x][y].action=DEAD;
+		return ;
+	}
 
 	//avvista il predatore se nella zona prey_zone
 	if(field[x][y]==PREY_ZONE){
@@ -160,8 +197,12 @@ void PreyPredatorAutoma::doPreyStep(int x, int y) {
 
 	// Fattore riproduzione movimento e stare fermo (quest'ultimi pari a 1)
 	int choose=0;
-	if(automa[currentMatrix][x][y].age>=mat_prey)
+	if(automa[currentMatrix][x][y].age>=mat_prey && automa[currentMatrix][x][y].grass>0)
+		choose=rand()%(preyMoveFactor+preyNoMoveFactor+preyReproductionFactor+preyEatGrassFactor);
+	else if(automa[currentMatrix][x][y].age>=mat_prey)
 		choose=rand()%(preyMoveFactor+preyNoMoveFactor+preyReproductionFactor);
+	else if(automa[currentMatrix][x][y].grass>0)
+		choose=rand()%(preyMoveFactor+preyNoMoveFactor+preyEatGrassFactor);
 	else
 		choose=rand()%(preyMoveFactor+preyNoMoveFactor);
 
@@ -173,10 +214,14 @@ void PreyPredatorAutoma::doPreyStep(int x, int y) {
 		//la preda non fa niente
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=0;
-	}else {
+	}else if(automa[currentMatrix][x][y].age>=mat_prey && choose<(preyMoveFactor+preyNoMoveFactor+preyReproductionFactor) ){
 		//riproduzione della preda
 		automa[currentMatrix][x][y].action=REPRODUCT;
 		automa[currentMatrix][x][y].direction=searchCell(x,y,EMPTY);
+	}else{
+		//mangia l'erba
+		automa[currentMatrix][x][y].action=EAT;
+		automa[currentMatrix][x][y].direction=0;
 	}
 }
 
@@ -283,15 +328,15 @@ void PreyPredatorAutoma::doPredatorStep(int x, int y) {
 
 	int choose=rand()%totalProbability;
 
-	if(choose<1){
+	if(choose<predatorMoveFactor){
 		//spostamento predatore
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=searchCell(x,y,EMPTY);
-	}else if(choose<2){
+	}else if(choose<predatorMoveFactor+predatorNoMoveFactor){
 		//il predatore non fa niente
 		automa[currentMatrix][x][y].action=MOVE;
 		automa[currentMatrix][x][y].direction=0;
-	}else if(isMaturity && choose<2+predatorReproductionFactor){
+	}else if(isMaturity && choose<predatorMoveFactor+predatorNoMoveFactor+predatorReproductionFactor){
 
 		//riproduzione dell redatore
 		automa[currentMatrix][x][y].action=REPRODUCT;
@@ -358,10 +403,13 @@ void PreyPredatorAutoma::capturePrey(int x, int y) {
 }
 
 void PreyPredatorAutoma::doAction(int x, int y) {
+
 	if(automa[currentMatrix][x][y].action==MOVE){
 		moveCell(x,y);
 	}else if(automa[currentMatrix][x][y].action==REPRODUCT){
 		reproductCell(x,y);
+	}else if(automa[currentMatrix][x][y].type==PREY && automa[currentMatrix][x][y].action==EAT){
+		preyEatGrass(x,y);
 	}
 }
 
@@ -387,6 +435,23 @@ void PreyPredatorAutoma::moveCell(int x, int y) {
 	automa[1-currentMatrix][nx][ny].direction=0;
 }
 
+void PreyPredatorAutoma::preyEatGrass(int x,int y){
+	if(automa[currentMatrix][x][y].grass>0){
+		automa[1-currentMatrix][x][y]=automa[currentMatrix][x][y];
+		automa[1-currentMatrix][x][y].fasting=0;
+		automa[1-currentMatrix][x][y].direction=0;
+		automa[currentMatrix][x][y].grass=automa[currentMatrix][x][y].grass-1;
+	}
+
+}
+
+void PreyPredatorAutoma::grassGrowth(int i,int j){
+	automa[1-currentMatrix][i][j].grass=automa[currentMatrix][i][j].grass;
+
+	double extract=rand();
+	if(automa[1-currentMatrix][i][j].grass==0 && extract<(RAND_MAX*growthGrassFactor/100) )
+		automa[1-currentMatrix][i][j].grass=automa[1-currentMatrix][i][j].grass+1;
+}
 
 
 void PreyPredatorAutoma::getCordinate(int direction, int x, int y, int& newX,int& newY) {

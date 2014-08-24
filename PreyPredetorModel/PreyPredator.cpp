@@ -19,26 +19,38 @@ using namespace std;
 
 //dimension automata & constant
 int N = 20;
-int mat_prey=50;
+int mat_prey=20;
 int mat_predator=15;
-int fasting_predator=12;
+int fasting_prey=10;
+int fasting_predator=10;
 double preyPerc=10;
 double predatorPerc=4;
+double grassPerc=4;
 double percPreyZone=40;
+
+// Fattori di riproduzione e aggressione preda-predatore
+int preyReproductionFactor=1;
+int preyMoveFactor=10;
+int preyNoMoveFactor=2;
+int predatorMoveFactor=5;
+int predatorNoMoveFactor=1;
+int predatorReproductionFactor=1;
+int predatorAggressiveFactor=10;
+double growthGrassFactor=0.1;
+int preyEatGrassFactor=90;
 
 PreyPredatorAutoma *model;
 
 double cellSize = 10;
 double sleepTime = 500.0;
-bool pause =false;
+bool pause =true;
 double lastTime = 0;
 int iteration=0;
-ofstream resultFile;
 
 // Plot data
 list<pair<int,int> > graphPrey;
 list<pair<int,int> > graphPredator;
-int maxSizeGraph=1000;
+int maxSizeGraph=500;
 
 // UI VARIABLE //
 
@@ -53,6 +65,19 @@ int fasting_predatorGUI=fasting_predator;
 float preyPercGUI=preyPerc;
 float predatorPercGUI=predatorPerc;
 float percPreyZoneGUI=percPreyZone;
+int preyReproductionFactorGUI=preyReproductionFactor;
+int preyMoveFactorGUI=preyMoveFactor;
+int preyNoMoveFactorGUI=preyNoMoveFactor;
+int predatorMoveFactorGUI=predatorMoveFactor;
+int predatorNoMoveFactorGUI=predatorNoMoveFactor;
+int predatorReproductionFactorGUI=predatorReproductionFactor;
+int predatorAggressiveFactorGUI=predatorAggressiveFactor;
+float growthGrassFactorGUI=growthGrassFactor;
+int preyEatGrassFactorGUI=preyEatGrassFactor;
+float grassPercGUI=grassPerc;
+int fasting_preyGUI=fasting_prey;
+
+
 
 
 
@@ -88,9 +113,23 @@ void restartModel( int control )
 	predatorPerc=predatorPercGUI;
 	percPreyZone=percPreyZoneGUI;
 	cellSize=cellSizeGUI;
+	preyReproductionFactor=preyReproductionFactorGUI;
+	preyMoveFactor=preyMoveFactorGUI;
+	preyNoMoveFactor=preyNoMoveFactorGUI;
+	predatorMoveFactor=predatorMoveFactorGUI;
+	predatorNoMoveFactor=predatorNoMoveFactorGUI;
+	predatorReproductionFactor=predatorReproductionFactorGUI;
+	predatorAggressiveFactor=predatorAggressiveFactorGUI;
+	growthGrassFactor=growthGrassFactorGUI;
+	int preyEatGrassFactor=preyEatGrassFactorGUI;
+	double grassPerc=grassPercGUI;
+	int fasting_prey=fasting_preyGUI;
 
+	graphPredator.clear();
+	graphPrey.clear();
+	iteration=0;
 
-	model=new PreyPredatorAutoma(N,mat_prey,mat_predator,fasting_predator,preyPerc,predatorPerc,percPreyZone);
+	model=new PreyPredatorAutoma( N,  mat_prey,  mat_predator, fasting_predator, fasting_prey, preyReproductionFactor, preyMoveFactor, preyNoMoveFactor, predatorReproductionFactor, predatorMoveFactor, predatorNoMoveFactor, predatorAggressiveFactor, growthGrassFactor, preyEatGrassFactor, grassPerc, preyPerc, predatorPerc, percPreyZone);
 	glutReshapeWindow(N*cellSize,N*cellSize);
 }
 
@@ -104,9 +143,9 @@ void init() {
 	glEnable(GL_DEPTH_TEST);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 
-	model=new PreyPredatorAutoma(N,mat_prey,mat_predator,fasting_predator,preyPerc,predatorPerc,percPreyZone);
-	resultFile.open("result.dat");
-	resultFile << "Time " << "Number_Prey " << "Number_Predator" <<endl;
+	model=new PreyPredatorAutoma( N,  mat_prey,  mat_predator, fasting_predator, fasting_prey, preyReproductionFactor, preyMoveFactor, preyNoMoveFactor, predatorReproductionFactor, predatorMoveFactor, predatorNoMoveFactor, predatorAggressiveFactor, growthGrassFactor, preyEatGrassFactor, grassPerc, preyPerc, predatorPerc, percPreyZone);
+
+
 
 }
 
@@ -130,6 +169,27 @@ void reshape(int w, int h) {
 	glClear(GL_DEPTH_BUFFER_BIT);
 }
 
+void printGraph() {
+	graphPrey.push_back( { iteration, model->getNumberCurrentPrey() });
+	graphPredator.push_back( { iteration, model->getNumberCurrentPredator() });
+	//Print le ultime tot iterazioni
+	if (graphPrey.size() > maxSizeGraph) {
+		graphPrey.pop_front();
+		graphPredator.pop_front();
+	};
+
+	cout << "set title ' Prey-Predator Number" <<  endl;
+	cout<<"set terminal wxt 1 position 300,300"<<endl;
+	cout << "set xlabel 'iteration'" << endl;
+	cout << "set ylabel 'Number'" << endl;
+	cout << "set xrange [" << graphPrey.begin()->first << ":" << graphPrey.begin()->first+maxSizeGraph << "]" << endl;
+	cout << "set yrange [" << 0 << ":" <<   "]" << endl;
+	cout << "plot '-' using 1:2 title 'Prey' with lines, '-' using 1:3 title 'Predator' with lines" << endl;
+	for (list<pair<int, int> >::iterator it1 = graphPrey.begin(), it2 =
+			graphPredator.begin(); it1 != graphPrey.end(); it1++, it2++)
+		cout << it1->first << "	" << it1->second << "	" << it2->second << endl;
+	cout << "e" << endl;
+}
 
 void display(void) {
 
@@ -144,17 +204,17 @@ void display(void) {
 
 	for (int i = 0; i < N; i++)
 		for (int j = 0; j < N; j++) {
-			if (matrixModel[i][j].type==EMPTY){
+			if (matrixModel[i][j].type==EMPTY && matrixModel[i][j].grass==0){
 				if(field[i][j]==PREDATOR_ZONE)
 					glColor3f(0.6f, 0.2f, 0.0f);
 				else
 					glColor3f(0.4f, 0.6f, 0.0f);
 				span=0;
+			}else if (matrixModel[i][j].type==EMPTY && matrixModel[i][j].grass!=0){
+				glColor3f(0.0f, 0.8f, 0.0f);
+				span=0;
 			}else if(matrixModel[i][j].type==PREY){
-				if(field[i][j]==PREDATOR_ZONE)
-					glColor3f(0.0f, 1.0f, 0.8f);
-				else
-					glColor3f(0.0f, 1.0f, 0.8f);
+				glColor3f(0.0f, 1.0f, 0.8f);
 				span=cellSize/10;
 			}else if(matrixModel[i][j].type==PREDATOR){
 				glColor3f(1.0f, 1.0f, 0.0f);
@@ -176,15 +236,7 @@ void display(void) {
 		lastTime = glutGet(GLUT_ELAPSED_TIME) ;
 		model->doStep();
 
-		graphPrey.push_back({iteration,model->getNumberCurrentPrey()});
-		graphPredator.push_back({iteration,model->getNumberCurrentPredator()});
-		//Print le ultime tot iterazioni
-		if(graphPrey.size()>1000){graphPrey.pop_front();graphPredator.pop_front();};
-
-		cout<< "plot '-' using 1:2 with lines, '-' using 1:3 with lines" <<endl;
-		for(list<pair<int,int> >::iterator it1=graphPrey.begin(),it2=graphPredator.begin();it1!=graphPrey.end();it1++,it2++)
-			cout << it1->first << "	" <<it1->second<<"	"<<it2->second<<endl;
-		cout<<"e"<<endl;
+		printGraph();
 		iteration++;
 	}
 }
@@ -217,49 +269,89 @@ int main(int argc, char** argv) {
 	glutInit(&argc, argv);
 	glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
 	glutInitWindowSize(N * cellSize, N * cellSize);
-	glutInitWindowPosition(100, 100);
+	glutInitWindowPosition(200, 10);
 	main_window=glutCreateWindow(argv[0]);
 	init();
 	glutDisplayFunc(display);
 	glutReshapeFunc(reshape);
-//	glutKeyboardFunc(keyboard);
 
 	  /****************************************/
 	  /*         Here's the GLUI code         */
 	  /****************************************/
 
-	  GLUI *glui = GLUI_Master.create_glui( "Automata Parameter", 0, 400, 50 ); /* name, flags,
-									 x, and y */
-	  new GLUI_StaticText( glui, "Set parameter" );
+	  GLUI *glui = GLUI_Master.create_glui( "Automata Parameter", 0, 10, 10 ); /* name, flags, x, and y */
+
+	  new GLUI_StaticText( glui, "Prey Factor" );
+	  new GLUI_Separator( glui );
+	  GLUI_Spinner* maturityPreyText = new GLUI_Spinner( glui, "Maturity:", &mat_preyGUI, 2 );
+	  maturityPreyText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* fastingPreyText = new GLUI_Spinner( glui, "Fasting:", &fasting_preyGUI, 2 );
+	  fastingPreyText->set_int_limits( 0, 100 );
+
+	  GLUI_Spinner* preyReproductionText = new GLUI_Spinner( glui, "Reproduction:", &preyReproductionFactorGUI, 2 );
+	  preyReproductionText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* preyMoveText = new GLUI_Spinner( glui, "Move:", &preyMoveFactorGUI, 2 );
+	  preyMoveText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* preyStationaryText = new GLUI_Spinner( glui, "Stationary:", &preyNoMoveFactorGUI, 2 );
+	  preyStationaryText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* preyEatGrassText = new GLUI_Spinner( glui, "Eat grass :", &preyEatGrassFactorGUI, 2 );
+	  preyEatGrassText->set_int_limits( 1, 100 );
+
+	  new GLUI_Separator( glui );
+	  new GLUI_StaticText( glui, "Predator Factor" );
+	  new GLUI_Separator( glui );
+	  GLUI_Spinner* maturityPredatorText = new GLUI_Spinner( glui, "Maturity:", &mat_predatorGUI, 2 );
+	  maturityPredatorText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* fastingPredatorText = new GLUI_Spinner( glui, "Fasting:", &fasting_predatorGUI, 2 );
+	  fastingPredatorText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* predatorReproductionText = new GLUI_Spinner( glui, "Reproduction:", &predatorReproductionFactorGUI, 2 );
+	  predatorReproductionText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* predatorMoveText = new GLUI_Spinner( glui, "Move:", &predatorMoveFactorGUI, 2 );
+	  predatorMoveText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* predatorStationaryText = new GLUI_Spinner( glui, "Stationary:", &predatorNoMoveFactorGUI, 2 );
+	  predatorStationaryText->set_int_limits( 1, 100 );
+
+	  GLUI_Spinner* predatorAggressiveText = new GLUI_Spinner( glui, "Aggression:", &predatorAggressiveFactorGUI, 2 );
+	  predatorAggressiveText->set_int_limits( 1, 100 );
+
+	  new GLUI_Separator( glui );
+	  new GLUI_StaticText( glui, "Field & Model Parameters" );
 	  new GLUI_Separator( glui );
 	  GLUI_Spinner* sleepSpinner  = new GLUI_Spinner( glui, "Sleep time:", &sleepTimeGUI, 2 ,control_cb);
-	  sleepSpinner->set_float_limits( 0, 1000 );
+	  sleepSpinner->set_int_limits( 0, 1000 );
 
 	  GLUI_Spinner* dimText = new GLUI_Spinner( glui, "Dimension:", &NGUI, 2 );
 	  dimText->set_int_limits( 1, 1000 );
 
-	  GLUI_Spinner* cellSize = new GLUI_Spinner( glui, "Cell Size:", &cellSizeGUI, 2 );
+	  GLUI_Spinner* cellSize = new GLUI_Spinner( glui, "Cell size:", &cellSizeGUI, 2 );
 	  cellSize->set_float_limits( 0, 50 );
 
-	  GLUI_Spinner* maturityPreyText = new GLUI_Spinner( glui, "Maturity Prey:", &mat_preyGUI, 2 );
-	  maturityPreyText->set_int_limits( 1, 100 );
+	  GLUI_Spinner* preyZoneText = new GLUI_Spinner( glui, "Prey zone:", &percPreyZoneGUI, 2 );
+	  preyZoneText->set_float_limits( 0, 100 );
 
-	  GLUI_Spinner* maturityPredatorText = new GLUI_Spinner( glui, "Maturity Predator:", &mat_predatorGUI, 2 );
-	  maturityPredatorText->set_int_limits( 1, 100 );
+	  GLUI_Spinner* predatorPercText = new GLUI_Spinner( glui, "Initial predator:", &predatorPercGUI, 2 );
+	  predatorPercText->set_float_limits( 0, 100 );
 
-	  GLUI_Spinner* fastingPredatorText = new GLUI_Spinner( glui, "Fasting Predator:", &fasting_predatorGUI, 2 );
-	  fastingPredatorText->set_int_limits( 1, 100 );
+	  GLUI_Spinner* preyPercText = new GLUI_Spinner( glui, "Initial prey:", &preyPercGUI, 2 );
+	  preyPercText->set_float_limits( 0, 100 );
 
-	  GLUI_Spinner* preyZoneText = new GLUI_Spinner( glui, "Prey Zone:", &percPreyZoneGUI, 2 );
-	  preyZoneText->set_float_limits( 1, 100 );
+	  GLUI_Spinner* grassPercText = new GLUI_Spinner( glui, "Initial grass:", &grassPercGUI, 2 );
+	  grassPercText->set_float_limits( 0, 100 );
 
-	  GLUI_Spinner* predatorPercText = new GLUI_Spinner( glui, "Initial Predator:", &predatorPercGUI, 2 );
-	  predatorPercText->set_float_limits( 1, 100 );
+	  GLUI_Spinner* grassGrowthText = new GLUI_Spinner( glui, "Grass growth:", &growthGrassFactorGUI, 2 );
+	  grassGrowthText->set_float_limits( 0, 100 );
 
-	  GLUI_Spinner* preyPercText = new GLUI_Spinner( glui, "Initial Prey:", &preyPercGUI, 2 );
-	  preyPercText->set_float_limits( 1, 100 );
 
-	  new GLUI_Button( glui, "Pause", 0,setPause );
+	  new GLUI_Separator( glui );
+	  new GLUI_Button( glui, "Start/Pause", 0,setPause );
 	  new GLUI_Button( glui, "Restart", 0,restartModel );
 	  new GLUI_Button( glui, "Quit", 0,(GLUI_Update_CB)exit );
 
