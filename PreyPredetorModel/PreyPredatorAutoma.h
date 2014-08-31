@@ -74,8 +74,8 @@ public:
 	int sightsPredator(int x,int y);
 	cell** getCurrentMatrix();
 	int**  getField();
-	int getNumberCurrentPrey();
-	int getNumberCurrentPredator();
+	int getNumberCurrentPrey(int zone);
+	int getNumberCurrentPredator(int zone);
 
 private:
 // dimensione automa e variabile per swap della matrice

@@ -109,6 +109,7 @@ void PreyPredatorAutoma::inizialize() {
 
 //inizializzza il terreno
 	field=new int*[N];
+
 	for(int i=0;i<N;i++)
 		field[i]=new int[N];
 //setta tutte le celle come terreno per i predatori
@@ -127,6 +128,7 @@ void PreyPredatorAutoma::inizialize() {
 
 void PreyPredatorAutoma::doStep() {
 	//pulisci matrice del modello del passo successivo
+//#pragma omp parallel for
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++){
 			automa[1-currentMatrix][i][j].type=EMPTY;
@@ -134,6 +136,7 @@ void PreyPredatorAutoma::doStep() {
 		}
 
 	//esegui i sottoprocessi
+//#pragma omp parallel for
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++){
 			if(automa[currentMatrix][i][j].type==PREY)
@@ -143,17 +146,20 @@ void PreyPredatorAutoma::doStep() {
 		}
 
 	//risolvi conflitti
+//#pragma omp parallel for
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++)
 			resolveConflict(i,j);
 
 	//esegui cattura prede
+//#pragma omp parallel for
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++)
 			if(automa[currentMatrix][i][j].type==PREDATOR && automa[currentMatrix][i][j].action==EAT)
 				capturePrey(i,j);
 
 	//esegui spostamenti o riproduzioni
+//#pragma omp parallel for
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++)
 			if(automa[currentMatrix][i][j].type==PREY || automa[currentMatrix][i][j].type==PREDATOR){
@@ -161,6 +167,7 @@ void PreyPredatorAutoma::doStep() {
 			}
 
 	//esegui crescita piante
+//#pragma omp parallel for
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++)
 			grassGrowth(i,j);
@@ -180,7 +187,7 @@ void PreyPredatorAutoma::doPreyStep(int x, int y) {
 
 
 	//morte della preda se fasting>fasting_prey, non mangia da fasting passi
-	if(automa[currentMatrix][x][y].fasting>fasting_prey){
+	if(fasting_prey>0 && automa[currentMatrix][x][y].fasting>fasting_prey){
 		automa[currentMatrix][x][y].action=DEAD;
 		return ;
 	}
@@ -590,15 +597,6 @@ int PreyPredatorAutoma::searchCell(int x, int y, int type) {
 
 
 
-int PreyPredatorAutoma::getNumberCurrentPrey() {
-	int contPrey=0;
-	for(int i=0;i<N;i++)
-		for(int j=0;j<N;j++)
-			if(automa[currentMatrix][i][j].type==PREY)
-				contPrey++;
-	return contPrey;
-
-}
 
 bool PreyPredatorAutoma::isNeighborhood(int x1, int y1, int x2, int y2) {
 	int *nx=0;
@@ -618,13 +616,24 @@ bool PreyPredatorAutoma::isNeighborhood(int x1, int y1, int x2, int y2) {
 	return returnValue;
 }
 
-int PreyPredatorAutoma::getNumberCurrentPredator() {
+int PreyPredatorAutoma::getNumberCurrentPredator(int zone) {
 	int contPredator=0;
 	for(int i=0;i<N;i++)
 		for(int j=0;j<N;j++)
-			if(automa[currentMatrix][i][j].type==PREDATOR)
+			if(automa[currentMatrix][i][j].type==PREDATOR && (zone==-1 || field[i][j]==zone))
 				contPredator++;
 	return contPredator;
+}
+
+
+int PreyPredatorAutoma::getNumberCurrentPrey(int zone) {
+	int contPrey=0;
+	for(int i=0;i<N;i++)
+		for(int j=0;j<N;j++)
+			if(automa[currentMatrix][i][j].type==PREY && (zone==-1 || field[i][j]==zone))
+				contPrey++;
+	return contPrey;
+
 }
 
 
@@ -635,4 +644,5 @@ int** PreyPredatorAutoma::getField() {
 cell** PreyPredatorAutoma::getCurrentMatrix() {
 	return automa[currentMatrix];
 }
+
 
